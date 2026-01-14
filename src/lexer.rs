@@ -1,5 +1,7 @@
-use crate::tokens::{Token, TokenInfo};
-
+use crate::{
+    tokens::{Token, TokenInfo},
+    utils::Span,
+};
 pub struct Lexer {
     input: Vec<char>,
     position: usize, // current position
@@ -205,7 +207,11 @@ impl Lexer {
             }
             Some(':') => {
                 self.advance();
-                Token::Colon
+                if self.match_char(':') {
+                    Token::BoxColon
+                } else {
+                    Token::Colon
+                }
             }
             Some('+') => {
                 self.advance();
@@ -222,6 +228,10 @@ impl Lexer {
             Some('/') => {
                 self.advance();
                 Token::Slash
+            }
+            Some('^') => {
+                self.advance();
+                Token::Caret
             }
 
             // Two-character tokens
@@ -278,9 +288,11 @@ impl Lexer {
 
         TokenInfo {
             token,
-            line: start_line,
-            column: start_column,
-            end_column,
+            span: Span {
+                line: start_line,
+                start_column,
+                end_column,
+            },
         }
     }
 
