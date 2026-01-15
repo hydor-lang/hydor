@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use crate::{lexer::Lexer, parser::parser::Parser};
 
 pub fn run_file(source: String) {

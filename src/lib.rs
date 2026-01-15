@@ -1,7 +1,8 @@
 pub mod ast;
+pub mod errors;
 pub mod lexer;
 pub mod parser;
+pub mod run;
 pub mod tokens;
 pub mod utils;
-pub mod errors;
-pub mod run;
+pub mod bytecode;
