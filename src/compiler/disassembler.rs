@@ -1,3 +1,5 @@
+use colored::*;
+
 use crate::{
     bytecode::bytecode::{Instructions, OpCode, ToOpcode, read_uint16},
     compiler::compiler::Bytecode,
@@ -5,7 +7,7 @@ use crate::{
 };
 
 pub fn disassemble(bytecode: &Bytecode) {
-    println!("--== Hydor Assembly ==--");
+    println!("{}", "--== Hydor Assembly ==--".bright_yellow().bold());
     disassemble_instructions(&bytecode.instructions);
     println!();
     disassemble_constants(&bytecode.constants);
@@ -19,30 +21,34 @@ fn disassemble_instructions(instructions: &Instructions) {
         let opcode = opcode_byte.to_opcode();
         let definition = OpCode::get_definition(opcode);
 
-        print!("{:04} {} ({:#04x})", offset, definition.name, opcode_byte);
+        print!(
+            "{} {} {}",
+            format!("{:04}", offset).cyan(),
+            definition.name.bright_white(),
+            format!("({:#04x})", opcode_byte).cyan()
+        );
 
-        offset += 1; // Move past opcode
+        offset += 1;
 
-        // Read operands
         if !definition.operands_width.is_empty() {
-            print!(" [");
+            print!(" {}", "[".white().dimmed());
 
             for (i, &width) in definition.operands_width.iter().enumerate() {
                 if i > 0 {
-                    print!(", ");
+                    print!("{}", ", ".white().dimmed());
                 }
 
                 match width {
                     2 => {
                         let operand = read_uint16(instructions, offset);
-                        print!("{:#04x}", operand);
+                        print!("{}", format!("{:#04x}", operand).white());
                         offset += 2;
                     }
                     _ => unreachable!(),
                 }
             }
 
-            print!("]");
+            print!("{}", "]".white().dimmed());
         }
 
         println!();
@@ -50,9 +56,13 @@ fn disassemble_instructions(instructions: &Instructions) {
 }
 
 fn disassemble_constants(constants: &Vec<RuntimeValue>) {
-    println!("--== Constants ==--");
+    println!("{}", "--== Constants ==--".bright_yellow().bold());
 
     for (i, constant) in constants.iter().enumerate() {
-        println!("{:#04x} {:?}", i, constant);
+        println!(
+            "{} {}",
+            format!("{:#04x}", i).cyan(),
+            format!("{:?}", constant).bright_white()
+        );
     }
 }
