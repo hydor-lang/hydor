@@ -23,17 +23,6 @@ pub struct Parser {
     pub errors: ErrorCollector,
 }
 
-pub struct ParseOutput {
-    pub program: Program,
-    pub errors: ErrorCollector,
-}
-
-impl ParseOutput {
-    pub fn is_ok(&self) -> bool {
-        !self.errors.has_errors()
-    }
-}
-
 impl Parser {
     pub fn new(tokens: Vec<TokenInfo>) -> Self {
         let mut parser = Self {
@@ -57,11 +46,15 @@ impl Parser {
         parser.register_nud(TokenType::LeftParenthesis, Parser::parse_grouping_expr);
 
         parser.register_led(TokenType::Plus, Parser::parse_binary_expr);
+        parser.register_led(TokenType::Minus, Parser::parse_binary_expr);
+        parser.register_led(TokenType::Asterisk, Parser::parse_binary_expr);
+        parser.register_led(TokenType::Slash, Parser::parse_binary_expr);
+        parser.register_led(TokenType::Caret, Parser::parse_exponent_expr);
 
         parser
     }
 
-    pub fn parse_program(&mut self) -> ParseOutput {
+    pub fn parse_program(&mut self) -> Result<Program, ErrorCollector> {
         let mut body: Vec<Statement> = Vec::new();
 
         while !self.is_eof() {
@@ -74,9 +67,10 @@ impl Parser {
             }
         }
 
-        ParseOutput {
-            program: Program { statements: body },
-            errors: std::mem::take(&mut self.errors),
+        if self.errors.has_errors() {
+            Err(std::mem::take(&mut self.errors))
+        } else {
+            Ok(Program { statements: body })
         }
     }
 
@@ -149,7 +143,7 @@ impl Parser {
         self.current_token().token == Token::EndOfFile || self.current >= self.tokens.len()
     }
 
-    pub fn try_parse_expression(&mut self, precedence: Precedence) -> Option<Expression> {
+    pub fn try_parse_expression(&mut self, precedence: u8) -> Option<Expression> {
         let token_type = self.current_token().token.get_type();
 
         // Get prefix parser function
@@ -171,8 +165,9 @@ impl Parser {
             let token_type = self.current_token().token.get_type();
             let next_prec =
                 Precedence::get_token_precedence(&token_type).unwrap_or(Precedence::Default);
+            let next_prec_value = next_prec.into();
 
-            if precedence >= next_prec {
+            if precedence >= next_prec_value {
                 break;
             }
 
@@ -198,7 +193,7 @@ impl Parser {
         // expression statement
         let start = self.current_token().clone();
 
-        let expr = self.try_parse_expression(Precedence::Default)?;
+        let expr = self.try_parse_expression(Precedence::Default.into())?;
 
         self.expect_delimiter();
 
@@ -283,7 +278,7 @@ impl Parser {
         let operator_info = self.current_token().clone();
         self.advance(); // Eat operator
 
-        let value = self.try_parse_expression(Precedence::Unary)?;
+        let value = self.try_parse_expression(Precedence::Unary.into())?;
         let expr = Expr::Unary {
             operator: operator_info.token,
             right: Box::new(value),
@@ -295,7 +290,7 @@ impl Parser {
 
     pub fn parse_grouping_expr(&mut self) -> Option<Expression> {
         self.advance(); // Eat (
-        let expr = self.try_parse_expression(Precedence::Default)?;
+        let expr = self.try_parse_expression(Precedence::Default.into())?;
 
         if !self.expect(TokenType::RightParenthesis) {
             return None;
@@ -315,7 +310,30 @@ impl Parser {
 
         self.advance(); // Eat operator
 
-        let right = self.try_parse_expression(operator_precedence)?;
+        let right = self.try_parse_expression(operator_precedence.into())?;
+        let expr = Expr::BinaryOperation {
+            left: Box::new(left),
+            operator: operator_info.token.clone(),
+            right: Box::new(right),
+        }
+        .spanned(operator_info.span);
+
+        Some(expr)
+    }
+
+    pub fn parse_exponent_expr(&mut self, left: Expression) -> Option<Expression> {
+        let operator_info = self.current_token().clone();
+        let operator_precedence: u8 =
+            match Precedence::get_token_precedence(&operator_info.token.get_type()) {
+                Some(p) => p,
+                _ => Precedence::Default,
+            }
+            .into();
+
+        self.advance(); // Eat operator
+
+        // Parse right-assiciative
+        let right = self.try_parse_expression(operator_precedence - 1)?;
         let expr = Expr::BinaryOperation {
             left: Box::new(left),
             operator: operator_info.token.clone(),
