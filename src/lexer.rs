@@ -5,9 +5,9 @@ use crate::{
 
 pub struct Lexer {
     input: Vec<char>,
-    position: usize,
-    line: usize,
-    column: usize,
+    position: u32,
+    line: u32,
+    column: u32,
     last_token: Option<Token>, // Track last emitted token
 }
 
@@ -23,11 +23,11 @@ impl Lexer {
     }
 
     fn current_char(&self) -> Option<char> {
-        self.input.get(self.position).copied()
+        self.input.get(self.position as usize).copied()
     }
 
     fn peek_char(&self) -> Option<char> {
-        self.input.get(self.position + 1).copied()
+        self.input.get((self.position + 1) as usize).copied()
     }
 
     fn advance(&mut self) -> Option<char> {
@@ -60,7 +60,7 @@ impl Lexer {
         // Skip the two slashes
         self.advance(); // first /
         self.advance(); // second /
-        
+
         // Skip until newline or EOF
         while let Some(ch) = self.current_char() {
             if ch == '\n' {
@@ -320,12 +320,12 @@ impl Lexer {
         loop {
             let token_info = self.next_token();
             let is_eof = token_info.token == Token::EndOfFile;
-            
+
             // Skip leading newlines at start of file
             if tokens.is_empty() && token_info.token == Token::Newline {
                 continue;
             }
-            
+
             tokens.push(token_info);
 
             if is_eof {

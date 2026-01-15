@@ -8,12 +8,15 @@ use crate::{
 
 pub fn disassemble(bytecode: &Bytecode) {
     println!("{}", "--== Hydor Assembly ==--".bright_yellow().bold());
-    disassemble_instructions(&bytecode.instructions);
+    disassemble_instructions(&bytecode.instructions, &bytecode.debug_info);
     println!();
     disassemble_constants(&bytecode.constants);
 }
 
-fn disassemble_instructions(instructions: &Instructions) {
+fn disassemble_instructions(
+    instructions: &Instructions,
+    debug_info: &crate::compiler::compiler::DebugInfo,
+) {
     let mut offset = 0;
 
     while offset < instructions.len() {
@@ -21,9 +24,13 @@ fn disassemble_instructions(instructions: &Instructions) {
         let opcode = opcode_byte.to_opcode();
         let definition = OpCode::get_definition(opcode);
 
+        // Get span for this instruction
+        let span = debug_info.get_span(offset);
+
         print!(
-            "{} {} {}",
+            "{} {} {} {}",
             format!("{:04}", offset).cyan(),
+            format!("{}:{}-{}", span.line, span.start_column, span.end_column).bright_black(), // or .yellow().dimmed() for more visibility
             definition.name.bright_white(),
             format!("({:#04x})", opcode_byte).cyan()
         );

@@ -93,9 +93,9 @@ impl HydorError {
 
         let lines: Vec<&str> = source.lines().collect();
 
-        if span.line > 0 && span.line <= lines.len() {
+        if span.line > 0 && span.line <= (lines.len() as u32) {
             // Show error line with full info
-            let line_content = lines[span.line - 1];
+            let line_content = lines[(span.line - 1) as usize];
             eprintln!(
                 "    {} {} {}",
                 format!("Ln {}:{}", span.line, span.start_column)
@@ -108,9 +108,9 @@ impl HydorError {
             // Calculate pointer position
             let line_prefix_len = format!("Ln {}:{}", span.line, span.start_column).len();
             let gutter_padding = " ".repeat(line_prefix_len + 3); // +3 for " | "
-            let code_padding = " ".repeat(span.start_column.saturating_sub(1));
+            let code_padding = " ".repeat(span.start_column.saturating_sub(1) as usize);
 
-            let width = span.end_column.saturating_sub(span.start_column).max(1);
+            let width = span.end_column.saturating_sub(span.start_column).max(1) as usize;
 
             let pointer = if width == 1 {
                 "^".to_string()

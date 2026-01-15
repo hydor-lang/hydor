@@ -3,9 +3,9 @@ use std::{fs, io::ErrorKind, process};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span {
-    pub line: usize,
-    pub start_column: usize,
-    pub end_column: usize,
+    pub line: u32,
+    pub start_column: u32,
+    pub end_column: u32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
