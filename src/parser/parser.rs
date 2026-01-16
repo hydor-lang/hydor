@@ -55,6 +55,13 @@ impl Parser {
         parser.register_led(TokenType::Slash, Parser::parse_binary_expr);
         parser.register_led(TokenType::Caret, Parser::parse_exponent_expr);
 
+        parser.register_led(TokenType::LessThan, Parser::parse_binary_expr);
+        parser.register_led(TokenType::LessThanEqual, Parser::parse_binary_expr);
+        parser.register_led(TokenType::GreaterThan, Parser::parse_binary_expr);
+        parser.register_led(TokenType::GreaterThanEqual, Parser::parse_binary_expr);
+        parser.register_led(TokenType::Equal, Parser::parse_binary_expr);
+        parser.register_led(TokenType::NotEqual, Parser::parse_binary_expr);
+
         parser
     }
 

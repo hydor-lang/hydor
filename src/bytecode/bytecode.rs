@@ -21,6 +21,13 @@ pub enum OpCode {
     LoadNil = 0xC,
     LoadBoolTrue = 0xD,
     LoadBoolFalse = 0xE,
+
+    CompareLess = 0xF,
+    CompareLessEqual = 0x10,
+    CompareGreater = 0x11,
+    CompareGreaterEqual = 0x012,
+    CompareEqual = 0x13,
+    CompareNotEqual = 0x14,
 }
 
 pub struct Definition {
@@ -118,6 +125,30 @@ impl OpCode {
                 name: "UNARY_NOT",
                 operands_width: vec![],
             },
+            OpCode::CompareLess => Definition {
+                name: "COMPARE_LESS",
+                operands_width: vec![],
+            },
+            OpCode::CompareLessEqual => Definition {
+                name: "COMPARE_LESS_EQUAL",
+                operands_width: vec![],
+            },
+            OpCode::CompareGreater => Definition {
+                name: "COMPARE_GREATER",
+                operands_width: vec![],
+            },
+            OpCode::CompareGreaterEqual => Definition {
+                name: "COMPARE_GREATER_EQUAL",
+                operands_width: vec![],
+            },
+            OpCode::CompareEqual => Definition {
+                name: "COMPARE_EQUAL",
+                operands_width: vec![],
+            },
+            OpCode::CompareNotEqual => Definition {
+                name: "COMPARE_NOT_EQUAL",
+                operands_width: vec![],
+            },
         }
     }
 }
@@ -143,6 +174,12 @@ impl ToOpcode for u8 {
             0xC => OpCode::LoadNil,
             0xD => OpCode::LoadBoolTrue,
             0xE => OpCode::LoadBoolFalse,
+            0xF => OpCode::CompareLess,
+            0x10 => OpCode::CompareLessEqual,
+            0x11 => OpCode::CompareGreater,
+            0x12 => OpCode::CompareGreaterEqual,
+            0x13 => OpCode::CompareEqual,
+            0x14 => OpCode::CompareNotEqual,
 
             _ => unreachable!("Cannot convert byte '{}' to an opcode", self),
         }

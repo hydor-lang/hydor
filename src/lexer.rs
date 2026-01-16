@@ -8,7 +8,7 @@ pub struct Lexer {
     position: u32,
     line: u32,
     column: u32,
-    last_token: Option<Token>, // Track last emitted token
+    last_token: Option<Token>,
 }
 
 impl Lexer {
@@ -22,16 +22,16 @@ impl Lexer {
         }
     }
 
-    fn current_char(&self) -> Option<char> {
+    fn current(&self) -> Option<char> {
         self.input.get(self.position as usize).copied()
     }
 
-    fn peek_char(&self) -> Option<char> {
-        self.input.get((self.position + 1) as usize).copied()
+    fn peek(&self, offset: usize) -> Option<char> {
+        self.input.get((self.position as usize) + offset).copied()
     }
 
     fn advance(&mut self) -> Option<char> {
-        let ch = self.current_char()?;
+        let ch = self.current()?;
         self.position += 1;
 
         if ch == '\n' {
@@ -45,45 +45,34 @@ impl Lexer {
     }
 
     fn skip_whitespace(&mut self) {
-        while let Some(ch) = self.current_char() {
-            match ch {
-                ' ' | '\t' | '\r' => {
-                    self.advance();
-                }
-                _ => break,
-            }
+        while matches!(self.current(), Some(' ' | '\t' | '\r')) {
+            self.advance();
         }
     }
 
-    /// Skip a single-line comment (// ...)
     fn skip_comment(&mut self) {
-        // Skip the two slashes
         self.advance(); // first /
         self.advance(); // second /
 
-        // Skip until newline or EOF
-        while let Some(ch) = self.current_char() {
+        while let Some(ch) = self.current() {
             if ch == '\n' {
-                break; // Don't consume the newline
+                break;
             }
             self.advance();
         }
     }
 
     fn read_number(&mut self) -> Token {
-        let mut number = String::new();
+        let mut num = String::new();
         let mut is_float = false;
 
-        while let Some(ch) = self.current_char() {
+        while let Some(ch) = self.current() {
             if ch.is_ascii_digit() {
-                number.push(ch);
+                num.push(ch);
                 self.advance();
-            } else if ch == '.'
-                && !is_float
-                && self.peek_char().map_or(false, |c| c.is_ascii_digit())
-            {
+            } else if ch == '.' && !is_float && self.peek(1).map_or(false, |c| c.is_ascii_digit()) {
                 is_float = true;
-                number.push(ch);
+                num.push(ch);
                 self.advance();
             } else {
                 break;
@@ -91,90 +80,80 @@ impl Lexer {
         }
 
         if is_float {
-            Token::Float(number.parse().unwrap_or(0.0))
+            Token::Float(num.parse().unwrap_or(0.0))
         } else {
-            Token::Integer(number.parse().unwrap_or(0))
+            Token::Integer(num.parse().unwrap_or(0))
         }
     }
 
     fn read_identifier(&mut self) -> Token {
-        let mut identifier = String::new();
+        let mut id = String::new();
 
-        while let Some(ch) = self.current_char() {
+        while let Some(ch) = self.current() {
             if ch.is_alphanumeric() || ch == '_' {
-                identifier.push(ch);
+                id.push(ch);
                 self.advance();
             } else {
                 break;
             }
         }
 
-        Token::lookup_identifier(&identifier)
+        Token::lookup_identifier(&id)
     }
 
     fn read_string(&mut self) -> Token {
         self.advance(); // skip opening quote
-        let mut string = String::new();
+        let mut s = String::new();
 
-        while let Some(ch) = self.current_char() {
+        while let Some(ch) = self.current() {
             if ch == '"' || ch == '\'' {
                 self.advance(); // skip closing quote
-                return Token::String(string);
+                return Token::String(s);
             }
 
             if ch == '\\' {
                 self.advance();
-                if let Some(escaped) = self.current_char() {
+                if let Some(escaped) = self.current() {
                     match escaped {
-                        'n' => string.push('\n'),
-                        't' => string.push('\t'),
-                        'r' => string.push('\r'),
-                        '"' => string.push('"'),
-                        '\'' => string.push('\''),
-                        '\\' => string.push('\\'),
+                        'n' => s.push('\n'),
+                        't' => s.push('\t'),
+                        'r' => s.push('\r'),
+                        '"' => s.push('"'),
+                        '\'' => s.push('\''),
+                        '\\' => s.push('\\'),
                         _ => {
-                            string.push('\\');
-                            string.push(escaped);
+                            s.push('\\');
+                            s.push(escaped);
                         }
                     }
                     self.advance();
                 }
             } else {
-                string.push(ch);
+                s.push(ch);
                 self.advance();
             }
         }
 
-        // Unterminated string
         Token::Illegal('"')
-    }
-
-    fn match_char(&mut self, expected: char) -> bool {
-        if self.peek_char() == Some(expected) {
-            self.advance();
-            true
-        } else {
-            false
-        }
     }
 
     pub fn next_token(&mut self) -> TokenInfo {
         self.skip_whitespace();
 
-        // Check for comments
-        if self.current_char() == Some('/') && self.peek_char() == Some('/') {
+        // Handle comments
+        if self.current() == Some('/') && self.peek(1) == Some('/') {
             self.skip_comment();
             return self.next_token();
         }
 
         let start_line = self.line;
-        let start_column = self.column;
+        let start_col = self.column;
 
-        let token = match self.current_char() {
+        let token = match self.current() {
             None => Token::EndOfFile,
 
             Some('\n') => {
-                // Skip consecutive newlines - only emit one Newline token
+                // Skip consecutive newlines
                 if matches!(self.last_token, Some(Token::Newline)) {
                     self.advance();
                     return self.next_token();
@@ -183,7 +162,7 @@ impl Lexer {
                 Token::Newline
             }
 
-            // Single-character tokens
+            // Single-char tokens
             Some('(') => {
                 self.advance();
                 Token::LeftParenthesis
@@ -220,14 +199,6 @@ impl Lexer {
                 self.advance();
                 Token::Semicolon
             }
-            Some(':') => {
-                self.advance();
-                if self.match_char(':') {
-                    Token::BoxColon
-                } else {
-                    Token::Colon
-                }
-            }
             Some('+') => {
                 self.advance();
                 Token::Plus
@@ -249,34 +220,51 @@ impl Lexer {
                 Token::Caret
             }
 
-            // Two-character tokens
+            // Two-char tokens
+            Some(':') => {
+                self.advance();
+                if self.current() == Some(':') {
+                    self.advance();
+                    Token::BoxColon
+                } else {
+                    Token::Colon
+                }
+            }
+
             Some('=') => {
                 self.advance();
-                if self.match_char('=') {
+                if self.current() == Some('=') {
+                    self.advance();
                     Token::Equal
                 } else {
                     Token::Assign
                 }
             }
+
             Some('!') => {
                 self.advance();
-                if self.match_char('=') {
+                if self.current() == Some('=') {
+                    self.advance();
                     Token::NotEqual
                 } else {
                     Token::Bang
                 }
             }
+
             Some('<') => {
                 self.advance();
-                if self.match_char('=') {
+                if self.current() == Some('=') {
+                    self.advance();
                     Token::LessThanEqual
                 } else {
                     Token::LessThan
                 }
             }
+
             Some('>') => {
                 self.advance();
-                if self.match_char('=') {
+                if self.current() == Some('=') {
+                    self.advance();
                     Token::GreaterThanEqual
                 } else {
                     Token::GreaterThan
@@ -299,34 +287,32 @@ impl Lexer {
             }
         };
 
-        let end_column = self.column;
+        let end_col = self.column;
 
-        // Track last token to avoid consecutive newlines
         self.last_token = Some(token.clone());
 
-        TokenInfo {
-            token,
-            span: Span {
-                line: start_line,
-                start_column,
-                end_column,
-            },
-        }
+        let span = Span {
+            line: start_line,
+            start_column: start_col,
+            end_column: end_col,
+        };
+
+        TokenInfo { token, span }
     }
 
     pub fn tokenize(&mut self) -> Vec<TokenInfo> {
         let mut tokens = Vec::new();
 
         loop {
-            let token_info = self.next_token();
-            let is_eof = token_info.token == Token::EndOfFile;
+            let info = self.next_token();
+            let is_eof = info.token == Token::EndOfFile;
 
-            // Skip leading newlines at start of file
-            if tokens.is_empty() && token_info.token == Token::Newline {
+            // Skip leading newlines
+            if tokens.is_empty() && info.token == Token::Newline {
                 continue;
             }
 
-            tokens.push(token_info);
+            tokens.push(info);
 
             if is_eof {
                 break;

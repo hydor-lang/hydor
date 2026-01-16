@@ -190,6 +190,14 @@ impl Compiler {
                     TokenType::Asterisk => self.emit(OpCode::Subtract, vec![], span),
                     TokenType::Slash => self.emit(OpCode::Divide, vec![], span),
                     TokenType::Caret => self.emit(OpCode::Exponent, vec![], span),
+                    TokenType::LessThan => self.emit(OpCode::CompareLess, vec![], span),
+                    TokenType::LessThanEqual => self.emit(OpCode::CompareLessEqual, vec![], span),
+                    TokenType::GreaterThan => self.emit(OpCode::CompareGreater, vec![], span),
+                    TokenType::GreaterThanEqual => {
+                        self.emit(OpCode::CompareGreaterEqual, vec![], span)
+                    }
+                    TokenType::Equal => self.emit(OpCode::CompareEqual, vec![], span),
+                    TokenType::NotEqual => self.emit(OpCode::CompareNotEqual, vec![], span),
 
                     _ => unreachable!("Unhandled binary operator type"),
                 };

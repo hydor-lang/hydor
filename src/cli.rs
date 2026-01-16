@@ -2,6 +2,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use colored::*;
 use std::fs::File;
 use std::path::PathBuf;
+use std::time::Instant;
 use std::{collections::HashMap, process};
 
 use crate::runtime_value::RuntimeValue;
@@ -184,7 +185,12 @@ fn command_run(args: &[String]) {
 
     print_success("Execution started");
     let mut vm = HydorVM::new(bytecode);
-    match vm.execute_bytecode() {
+
+    let start = Instant::now();
+    let result = vm.execute_bytecode();
+    let end = start.elapsed();
+
+    match result {
         Ok(()) => match vm.last_popped() {
             Some(e) => match e {
                 RuntimeValue::StringLiteral(s) => {
@@ -193,16 +199,20 @@ fn command_run(args: &[String]) {
                 }
                 _ => {
                     println!("Last popped: {e:?}");
+                    print_info(&format!("Program took {:?}", end));
                     process::exit(0)
                 }
             },
             None => {
                 print_info("No last element found");
+                print_info(&format!("Program took {:?}", end));
                 process::exit(0);
             }
         },
         Err(e) => e.report(&source),
     }
+
+    print_info(&format!("Program took {:?}", end));
 }
 
 fn detect_file_type(path: &str) -> FileType {

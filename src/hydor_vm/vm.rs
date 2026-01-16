@@ -1,3 +1,5 @@
+use std::{collections::btree_map::Keys, mem::take};
+
 use crate::{
     bytecode::bytecode::{Instructions, OpCode, ToOpcode, read_uint16},
     compiler::compiler::{Bytecode, DebugInfo},
@@ -52,18 +54,11 @@ impl HydorVM {
 
             match opcode {
                 OpCode::LoadConstant => {
-                    let const_index = read_uint16(&self.instructions, ip + 1);
-                    ip += 2;
-
-                    let constant = self.constants[const_index as usize];
-                    self.push(constant, span)?;
+                    ip = self.load_constant(ip, span)?;
                 }
 
                 OpCode::LoadString => {
-                    let str_index = read_uint16(&self.instructions, ip + 1);
-                    ip += 2;
-
-                    self.push(RuntimeValue::StringLiteral(str_index as usize), span)?;
+                    ip = self.load_string(ip, span)?;
                 }
 
                 OpCode::LoadNil => {
@@ -93,48 +88,30 @@ impl HydorVM {
                 }
 
                 OpCode::UnaryNegate => {
-                    let target = self.peek_offset(0)?;
-                    let operand_span = self.peek_span(0)?;
-
-                    if !target.is_number() {
-                        // This does a direct stack modification
-                        // which is faster than popping and pushing
-                        // a value into the stack
-                        return Err(HydorError::UnaryOperationError {
-                            operation: "negation".to_string(),
-                            operand_type: target.get_type(),
-                            span: operand_span,
-                        });
-                    }
-
-                    if target.is_float() {
-                        let literal = target.as_float().unwrap();
-                        self.set_offset_value(0, RuntimeValue::FloatLiteral(-literal))?;
-                    } else {
-                        let literal = target.as_int().unwrap();
-                        self.set_offset_value(0, RuntimeValue::IntegerLiteral(-literal))?;
-                    }
+                    self.unary_operation(opcode, span)?;
                 }
 
                 OpCode::UnaryNot => {
-                    let target = self.peek_offset(0)?;
-                    let operand_span = self.peek_span(0)?;
+                    self.unary_operation(opcode, span)?;
+                }
 
-                    match target {
-                        // This does a direct stack modification
-                        // which is faster than popping and pushing
-                        // a value into the stack
-                        RuntimeValue::BooleanLiteral(b) => {
-                            self.set_offset_value(0, RuntimeValue::BooleanLiteral(!b))?;
-                        }
-                        _ => {
-                            return Err(HydorError::UnaryOperationError {
-                                operation: "logical not".to_string(),
-                                operand_type: target.get_type(),
-                                span: operand_span,
-                            });
-                        }
-                    }
+                OpCode::CompareLess => {
+                    self.compare_operation(opcode, span)?;
+                }
+                OpCode::CompareLessEqual => {
+                    self.compare_operation(opcode, span)?;
+                }
+                OpCode::CompareGreater => {
+                    self.compare_operation(opcode, span)?;
+                }
+                OpCode::CompareGreaterEqual => {
+                    self.compare_operation(opcode, span)?;
+                }
+                OpCode::CompareEqual => {
+                    self.compare_operation(opcode, span)?;
+                }
+                OpCode::CompareNotEqual => {
+                    self.compare_operation(opcode, span)?;
                 }
 
                 OpCode::Pop => {
@@ -225,12 +202,46 @@ impl HydorVM {
         &self.string_table[index]
     }
 
+    /// Intern a string into the string table (with deduplication)
+    fn intern_string(&mut self, s: String) -> usize {
+        // Check if string already exists
+        if let Some(pos) = self.string_table.iter().position(|existing| existing == &s) {
+            return pos;
+        }
+
+        // Add new string
+        self.string_table.push(s);
+        self.string_table.len() - 1
+    }
+
     pub fn last_popped(&self) -> Option<RuntimeValue> {
         self.last_pop
     }
 }
 
-// Binary operations
+/// Loaders
+impl HydorVM {
+    fn load_constant(&mut self, mut ip: usize, span: Span) -> Result<usize, HydorError> {
+        let const_index = read_uint16(&self.instructions, ip + 1);
+        ip += 2;
+
+        let constant = self.constants[const_index as usize];
+        self.push(constant, span)?;
+
+        Ok(ip)
+    }
+
+    fn load_string(&mut self, mut ip: usize, span: Span) -> Result<usize, HydorError> {
+        let str_index = read_uint16(&self.instructions, ip + 1);
+        ip += 2;
+
+        self.push(RuntimeValue::StringLiteral(str_index as usize), span)?;
+
+        Ok(ip)
+    }
+}
+
+/// Binary operations
 impl HydorVM {
     /// General binary addition
     fn binary_op_add(&mut self) -> Result<(), HydorError> {
@@ -373,16 +384,161 @@ impl HydorVM {
         self.push(RuntimeValue::StringLiteral(str_index), result_span)?;
         Ok(())
     }
+}
 
-    /// Intern a string into the string table (with deduplication)
-    fn intern_string(&mut self, s: String) -> usize {
-        // Check if string already exists
-        if let Some(pos) = self.string_table.iter().position(|existing| existing == &s) {
-            return pos;
+/// Unary operations
+impl HydorVM {
+    fn unary_operation(&mut self, opcode: OpCode, span: Span) -> Result<(), HydorError> {
+        match opcode {
+            OpCode::UnaryNegate => self.unary_negation_operation(span),
+            OpCode::UnaryNot => self.unary_not_operation(),
+
+            _ => unreachable!(),
+        }
+    }
+
+    fn unary_negation_operation(&mut self, span: Span) -> Result<(), HydorError> {
+        // This does a direct stack modification
+        // which is faster than popping and pushing
+        // a value into the stack
+        let target = self.peek_offset(0)?;
+        let target_span = self.peek_span(0)?;
+
+        if !target.is_number() {
+            // Merge the operator span with the operand span
+            let full_span = Span {
+                line: span.line,
+                start_column: span.start_column,
+                end_column: target_span.end_column,
+            };
+
+            return Err(HydorError::UnaryOperationError {
+                operation: "negation".to_string(),
+                operand_type: target.get_type(),
+                span: full_span,
+            });
         }
 
-        // Add new string
-        self.string_table.push(s);
-        self.string_table.len() - 1
+        if !target.is_number() {
+            return Err(HydorError::UnaryOperationError {
+                operation: "negation".to_string(),
+                operand_type: target.get_type(),
+                span: span,
+            });
+        }
+
+        if target.is_float() {
+            let lit = target.as_float().unwrap();
+            self.set_offset_value(0, RuntimeValue::FloatLiteral(-lit))?; // Negate it!
+        } else {
+            let lit = target.as_int().unwrap();
+            self.set_offset_value(0, RuntimeValue::IntegerLiteral(-lit))?; // Negate it!
+        }
+
+        Ok(())
     }
+
+    fn unary_not_operation(&mut self) -> Result<(), HydorError> {
+        let target = self.peek_offset(0)?;
+
+        // Just flip return type
+        if self.is_truthy(target) {
+            self.set_offset_value(0, BOOLEAN_FALSE)?;
+        } else {
+            self.set_offset_value(0, BOOLEAN_TRUE)?;
+        }
+
+        Ok(())
+    }
+}
+
+/// Comparison operations
+impl HydorVM {
+    fn compare_operation(&mut self, opcode: OpCode, span: Span) -> Result<(), HydorError> {
+        let (right_val, right_span) = self.pop_with_span()?;
+        let (left_val, left_span) = self.pop_with_span()?;
+
+        // Number comparison
+        if left_val.is_number() && right_val.is_number() {
+            return self.compare_numbers(opcode, left_val, right_val, span);
+        }
+
+        // Only == and != are allowed for non-numeric types
+        match opcode {
+            OpCode::CompareEqual => {
+                let result = self.values_equal(left_val, right_val);
+                self.push(if result { BOOLEAN_TRUE } else { BOOLEAN_FALSE }, span)
+            }
+            OpCode::CompareNotEqual => {
+                let result = self.values_equal(left_val, right_val);
+                self.push(if result { BOOLEAN_FALSE } else { BOOLEAN_TRUE }, span)
+            }
+            _ => {
+                // <, <=, >, >= require numbers
+                let blame_type = if !left_val.is_number() {
+                    left_val.get_type()
+                } else {
+                    right_val.get_type()
+                };
+
+                Err(HydorError::ComparisonOperationError {
+                    operation: opcode_to_operator(opcode),
+                    blame_type,
+                    span,
+                })
+            }
+        }
+    }
+
+    fn compare_numbers(
+        &mut self,
+        opcode: OpCode,
+        left: RuntimeValue,
+        right: RuntimeValue,
+        span: Span,
+    ) -> Result<(), HydorError> {
+        let left_num = left.as_number().unwrap();
+        let right_num = right.as_number().unwrap();
+
+        let result = match opcode {
+            OpCode::CompareLess => left_num < right_num,
+            OpCode::CompareLessEqual => left_num <= right_num,
+            OpCode::CompareGreater => left_num > right_num,
+            OpCode::CompareGreaterEqual => left_num >= right_num,
+            OpCode::CompareEqual => left_num == right_num,
+            OpCode::CompareNotEqual => left_num != right_num,
+            _ => unreachable!(),
+        };
+
+        self.push(if result { BOOLEAN_TRUE } else { BOOLEAN_FALSE }, span)
+    }
+
+    fn values_equal(&self, left: RuntimeValue, right: RuntimeValue) -> bool {
+        match (left, right) {
+            (RuntimeValue::IntegerLiteral(a), RuntimeValue::IntegerLiteral(b)) => a == b,
+            (RuntimeValue::FloatLiteral(a), RuntimeValue::FloatLiteral(b)) => a == b,
+            (RuntimeValue::BooleanLiteral(a), RuntimeValue::BooleanLiteral(b)) => a == b,
+            (RuntimeValue::StringLiteral(a), RuntimeValue::StringLiteral(b)) => a == b,
+            (RuntimeValue::NilLiteral, RuntimeValue::NilLiteral) => true,
+
+            // Allow int/float comparison
+            (RuntimeValue::IntegerLiteral(a), RuntimeValue::FloatLiteral(b)) => (a as f64) == b,
+            (RuntimeValue::FloatLiteral(a), RuntimeValue::IntegerLiteral(b)) => a == (b as f64),
+
+            _ => false,
+        }
+    }
+}
+
+fn opcode_to_operator(opcode: OpCode) -> String {
+    match opcode {
+        OpCode::CompareLess => "<",
+        OpCode::CompareLessEqual => "<=",
+        OpCode::CompareGreater => ">",
+        OpCode::CompareGreaterEqual => ">=",
+        OpCode::CompareEqual => "==",
+        OpCode::CompareNotEqual => "!=",
+        _ => "?",
+    }
+    .to_string()
 }

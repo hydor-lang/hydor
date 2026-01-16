@@ -42,6 +42,11 @@ pub enum HydorError {
         operand_type: RuntimeType,
         span: Span,
     },
+    ComparisonOperationError {
+        operation: String,
+        blame_type: RuntimeType,
+        span: Span,
+    },
 }
 
 impl HydorError {
@@ -56,6 +61,8 @@ impl HydorError {
             HydorError::StackOverflow { span, .. } => *span,
             HydorError::ArithmeticError { span, .. } => *span,
             HydorError::UnaryOperationError { span, .. } => *span,
+
+            HydorError::ComparisonOperationError { span, .. } => *span,
         }
     }
 
@@ -70,6 +77,7 @@ impl HydorError {
             HydorError::StackOverflow { .. } => "HydorVM",
             HydorError::ArithmeticError { .. } => "Arithmetic",
             HydorError::UnaryOperationError { .. } => "Arithmetic",
+            HydorError::ComparisonOperationError { .. } => "Boolean",
         }
     }
 
@@ -128,6 +136,18 @@ impl HydorError {
                     "Cannot perform {} on type '{}'",
                     operation,
                     operand_type.to_string()
+                )
+            }
+
+            HydorError::ComparisonOperationError {
+                operation,
+                blame_type,
+                ..
+            } => {
+                format!(
+                    "Cannot compare with '{}' on type '{}'",
+                    operation,
+                    blame_type.to_string()
                 )
             }
         }
@@ -192,6 +212,10 @@ impl HydorError {
                     valid_type,
                     operand_type.to_string()
                 ))
+            }
+
+            HydorError::ComparisonOperationError { .. } => {
+                Some(format!("Try converting the operand's type to a number"))
             }
         }
     }
