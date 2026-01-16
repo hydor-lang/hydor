@@ -7,6 +7,15 @@ pub enum OpCode {
     Halt = 0x01,
     Pop = 0x02,
     LoadConstant = 0x03,
+
+    Add = 0x04,
+    Subtract = 0x05,
+    Multiply = 0x06,
+    Divide = 0x07,
+    Exponent = 0x08,
+
+    UnaryNegate = 0x09,
+    UnaryNot = 0xA,
 }
 
 pub struct Definition {
@@ -60,6 +69,34 @@ impl OpCode {
                 name: "POP",
                 operands_width: vec![],
             },
+            OpCode::Add => Definition {
+                name: "ADD",
+                operands_width: vec![],
+            },
+            OpCode::Subtract => Definition {
+                name: "SUCTRACT",
+                operands_width: vec![],
+            },
+            OpCode::Multiply => Definition {
+                name: "MULTIPLY",
+                operands_width: vec![],
+            },
+            OpCode::Divide => Definition {
+                name: "DIVIDE",
+                operands_width: vec![],
+            },
+            OpCode::Exponent => Definition {
+                name: "EXPONENT",
+                operands_width: vec![],
+            },
+            OpCode::UnaryNegate => Definition {
+                name: "UNARY_NEGATE",
+                operands_width: vec![],
+            },
+            OpCode::UnaryNot => Definition {
+                name: "UNARY_NOT",
+                operands_width: vec![],
+            },
         }
     }
 }
@@ -74,6 +111,13 @@ impl ToOpcode for u8 {
             0x01 => OpCode::Halt,
             0x02 => OpCode::Pop,
             0x03 => OpCode::LoadConstant,
+            0x04 => OpCode::Add,
+            0x05 => OpCode::Subtract,
+            0x06 => OpCode::Multiply,
+            0x07 => OpCode::Divide,
+            0x08 => OpCode::Exponent,
+            0x09 => OpCode::UnaryNegate,
+            0xA => OpCode::UnaryNot,
 
             _ => unreachable!("Cannot convert byte '{}' to an opcode", self),
         }

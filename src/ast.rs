@@ -13,8 +13,8 @@ pub type Statement = Spanned<Stmt>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Node {
-    Statement(Statement),
-    Expression(Expression),
+    Statement(Stmt),
+    Expression(Expr),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,8 +22,8 @@ pub enum Expr {
     IntegerLiteral(i32),
     FloatLiteral(f64),
     BooleanLiteral(bool),
-    Identifier(String),
     StringLiteral(String),
+    Identifier(String),
 
     Unary {
         operator: Token,
@@ -49,32 +49,21 @@ pub enum Stmt {
 }
 
 impl Expr {
-    pub fn spanned(self, from: Span) -> Spanned<Self> {
-        Spanned {
-            node: self,
-            span: from,
-        }
+    pub fn spanned(self, span: Span) -> Spanned<Self> {
+        Spanned { node: self, span }
     }
-}
 
-impl Stmt {
-    pub fn spanned(self, from: Span) -> Spanned<Self> {
-        Spanned {
-            node: self,
-            span: from,
-        }
-    }
-}
-
-impl Statement {
-    pub fn as_node(&self) -> Node {
-        Node::Statement(self.clone())
-    }
-}
-
-impl Expression {
-    pub fn as_node(&self) -> Node {
+    pub fn to_node(self) -> Node {
         Node::Expression(self.clone())
     }
 }
 
+impl Stmt {
+    pub fn spanned(self, span: Span) -> Spanned<Self> {
+        Spanned { node: self, span }
+    }
+
+    pub fn to_node(self) -> Node {
+        Node::Statement(self.clone())
+    }
+}

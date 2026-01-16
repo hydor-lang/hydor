@@ -15,6 +15,7 @@ type StatementParseFn = fn(&mut Parser) -> Option<Statement>;
 pub struct Parser {
     tokens: Vec<TokenInfo>,
     current: usize,
+    delimiter_stack: Vec<TokenType>,
 
     pub led_parse_fns: HashMap<TokenType, InfixParseFn>,
     pub nud_parse_fns: HashMap<TokenType, PrefixParseFn>,
@@ -29,6 +30,8 @@ impl Parser {
             tokens,
             current: 0,
             errors: ErrorCollector::new(),
+            delimiter_stack: Vec::new(),
+
             led_parse_fns: HashMap::new(),
             nud_parse_fns: HashMap::new(),
             stmt_parse_fns: HashMap::new(),
@@ -61,8 +64,8 @@ impl Parser {
             match self.try_parse_statement() {
                 Some(stmt) => body.push(stmt),
                 None => {
-                    // Advance to next statement
-                    self.advance();
+                    // Synchronize: skip to next statement boundary
+                    self.synchronize();
                 }
             }
         }
@@ -92,6 +95,13 @@ impl Parser {
         }
     }
 
+    fn is_at_delimiter(&self) -> bool {
+        matches!(
+            self.current_token().token.get_type(),
+            TokenType::Semicolon | TokenType::Newline
+        )
+    }
+
     fn expect(&mut self, token_type: TokenType) -> bool {
         if self.current_token().token.get_type() != token_type {
             let expect_err_msg = HydorError::ExpectedToken {
@@ -109,15 +119,23 @@ impl Parser {
     }
 
     fn expect_delimiter(&mut self) -> bool {
+        // If we're inside delimiters, delimiters are optional
+        if !self.delimiter_stack.is_empty() {
+            // Just skip any delimiters if present, but don't require them
+            while self.is_at_delimiter() && !self.is_eof() {
+                self.advance();
+            }
+            return true; // Always succeed when inside delimiters
+        }
+
+        // Outside delimiters - require a delimiter
         match self.current_token().token.get_type() {
-            TokenType::EndOfFile | TokenType::Semicolon | TokenType::Newline => {
-                while matches!(
-                    self.current_token().token.get_type(),
-                    TokenType::Semicolon | TokenType::Newline
-                ) {
+            TokenType::EndOfFile => true,
+            TokenType::Semicolon | TokenType::Newline => {
+                // Consume all consecutive delimiters
+                while self.is_at_delimiter() && !self.is_eof() {
                     self.advance();
                 }
-
                 true
             }
             _ => {
@@ -133,10 +151,39 @@ impl Parser {
         }
     }
 
+    fn skip_newlines_in_delimiters(&mut self) {
+        if !self.delimiter_stack.is_empty() {
+            while matches!(
+                self.current_token().token.get_type(),
+                TokenType::Newline | TokenType::Semicolon
+            ) && !self.is_eof()
+            {
+                self.advance();
+            }
+        }
+    }
+
+    fn synchronize(&mut self) {
+        self.advance();
+
+        while !self.is_eof() {
+            // Stop at statement boundaries
+            if self.is_at_delimiter() {
+                self.advance(); // consume the delimiter
+                return;
+            }
+
+            // Stop before keywords that start new statements
+            // (when you add them: let, fn, if, while, etc.)
+
+            self.advance();
+        }
+    }
+
     fn current_token(&self) -> &TokenInfo {
         self.tokens
             .get(self.current)
-            .unwrap_or_else(|| self.tokens.last().expect("Token vector is empty!")) // unreachable, but just in case
+            .unwrap_or_else(|| self.tokens.last().expect("Token vector is empty!"))
     }
 
     fn is_eof(&self) -> bool {
@@ -144,6 +191,8 @@ impl Parser {
     }
 
     pub fn try_parse_expression(&mut self, precedence: u8) -> Option<Expression> {
+        self.skip_newlines_in_delimiters();
+
         let token_type = self.current_token().token.get_type();
 
         // Get prefix parser function
@@ -162,6 +211,8 @@ impl Parser {
 
         // Parse infix expressions
         while !self.is_eof() {
+            self.skip_newlines_in_delimiters();
+
             let token_type = self.current_token().token.get_type();
             let next_prec =
                 Precedence::get_token_precedence(&token_type).unwrap_or(Precedence::Default);
@@ -185,7 +236,7 @@ impl Parser {
     fn try_parse_statement(&mut self) -> Option<Statement> {
         let stmt_type = self.current_token().token.get_type();
 
-        // Try to parse as a statemen
+        // Try to parse as a statement
         if let Some(stmt_fn) = self.stmt_parse_fns.get(&stmt_type) {
             return stmt_fn(self);
         }
@@ -289,8 +340,15 @@ impl Parser {
     }
 
     pub fn parse_grouping_expr(&mut self) -> Option<Expression> {
-        self.advance(); // Eat (
+        self.advance(); // Eat '('
+        self.delimiter_stack.push(TokenType::LeftParenthesis);
+
+        // skip \n after (
+        self.skip_newlines_in_delimiters();
         let expr = self.try_parse_expression(Precedence::Default.into())?;
+        self.skip_newlines_in_delimiters();
+
+        self.delimiter_stack.pop(); // Remove (
 
         if !self.expect(TokenType::RightParenthesis) {
             return None;
@@ -332,7 +390,7 @@ impl Parser {
 
         self.advance(); // Eat operator
 
-        // Parse right-assiciative
+        // Parse right-associative
         let right = self.try_parse_expression(operator_precedence - 1)?;
         let expr = Expr::BinaryOperation {
             left: Box::new(left),

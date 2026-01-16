@@ -5,6 +5,7 @@ use crate::{
     bytecode::bytecode::{Instructions, OpCode},
     errors::{ErrorCollector, HydorError},
     runtime_value::RuntimeValue,
+    tokens::TokenType,
     utils::{Span, Spanned},
 };
 
@@ -86,13 +87,12 @@ impl Compiler {
     /// Main entry point
     pub fn compile_program(&mut self, program: Program) -> Result<Bytecode, ErrorCollector> {
         for stmt in program.statements {
-            match self.try_compile_node(stmt.as_node()) {
-                None => break,
-                Some(()) => (),
-            };
+            if self.try_compile_statement(stmt).is_none() {
+                break;
+            }
         }
 
-        // Emit halt with a dummy span (or track program end span)
+        // Emit with dummy span
         self.emit(
             OpCode::Halt,
             vec![],
@@ -110,77 +110,91 @@ impl Compiler {
         }
     }
 
-    fn try_compile_node(&mut self, node: Node) -> Option<()> {
-        match node {
-            Node::Statement(stmt) => self.try_compile_statement(stmt)?,
-            Node::Expression(expr) => self.try_compile_expression(expr)?,
-        }
-
-        Some(()) // Success
-    }
-
     fn try_compile_statement(&mut self, stmt: Statement) -> Option<()> {
         let span = stmt.span;
 
         match stmt.node {
-            Stmt::Expression { expression } => self.try_compile_expression(expression)?,
+            Stmt::Expression { expression } => {
+                self.compile_expression(expression)?;
+                self.emit(OpCode::Pop, vec![], span);
+            }
+
             unknown => {
                 self.throw_error(HydorError::UnknownAST {
-                    node: Node::Statement(Spanned {
-                        node: unknown,
-                        span,
-                    }),
+                    node: unknown.to_node(),
                     span,
                 });
                 return None;
             }
         }
 
-        Some(()) // Success
+        Some(())
     }
 
-    fn try_compile_expression(&mut self, expr: Expression) -> Option<()> {
+    fn compile_expression(&mut self, expr: Expression) -> Option<()> {
         let span = expr.span;
 
         match expr.node {
             Expr::IntegerLiteral(v) => {
-                let value = RuntimeValue::IntegerLiteral(v);
-                let constant_index = self.add_constant(value);
-
-                self.emit(OpCode::LoadConstant, vec![constant_index], span);
+                let idx = self.add_constant(RuntimeValue::IntegerLiteral(v));
+                self.emit(OpCode::LoadConstant, vec![idx], span);
             }
 
             Expr::FloatLiteral(v) => {
-                let value = RuntimeValue::FloatLiteral(v);
-                let constant_index = self.add_constant(value);
-                self.emit(OpCode::LoadConstant, vec![constant_index], span);
+                let idx = self.add_constant(RuntimeValue::FloatLiteral(v));
+                self.emit(OpCode::LoadConstant, vec![idx], span);
             }
 
             Expr::BooleanLiteral(v) => {
-                let value = RuntimeValue::BooleanLiteral(v);
-                let constant_index = self.add_constant(value);
-                self.emit(OpCode::LoadConstant, vec![constant_index], span);
+                let idx = self.add_constant(RuntimeValue::BooleanLiteral(v));
+                self.emit(OpCode::LoadConstant, vec![idx], span);
             }
 
             Expr::StringLiteral(v) => {
-                let value = RuntimeValue::StringLiteral(v);
-                let constant_index = self.add_constant(value);
-                self.emit(OpCode::LoadConstant, vec![constant_index], span);
+                let idx = self.add_constant(RuntimeValue::StringLiteral(v));
+                self.emit(OpCode::LoadConstant, vec![idx], span);
+            }
+
+            Expr::Unary { operator, right } => {
+                self.compile_expression(*right);
+
+                match operator.get_type() {
+                    TokenType::Not => self.emit(OpCode::UnaryNot, vec![], span),
+                    TokenType::Minus => self.emit(OpCode::UnaryNegate, vec![], span),
+
+                    _ => unreachable!("Unhandled unary operator type"),
+                };
+            }
+
+            Expr::BinaryOperation {
+                left,
+                operator,
+                right,
+            } => {
+                self.compile_expression(*left);
+                self.compile_expression(*right);
+
+                match operator.get_type() {
+                    TokenType::Plus => self.emit(OpCode::Add, vec![], span),
+                    TokenType::Minus => self.emit(OpCode::Subtract, vec![], span),
+                    TokenType::Asterisk => self.emit(OpCode::Subtract, vec![], span),
+                    TokenType::Slash => self.emit(OpCode::Divide, vec![], span),
+                    TokenType::Caret => self.emit(OpCode::Exponent, vec![], span),
+
+                    _ => unreachable!("Unhandled binary operator type"),
+                };
             }
 
             unknown => {
                 self.throw_error(HydorError::UnknownAST {
-                    node: Node::Expression(Spanned {
-                        node: unknown,
-                        span,
-                    }),
+                    node: unknown.to_node(),
                     span,
                 });
                 return None;
             }
         }
 
-        Some(()) // Success
+        Some(())
     }
 
     fn bytecode(&mut self) -> Bytecode {
