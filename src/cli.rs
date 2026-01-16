@@ -1,4 +1,8 @@
+use byteorder::{BigEndian, ReadBytesExt};
+use colored::*;
 use std::collections::HashMap;
+use std::fs::File;
+use std::path::PathBuf;
 
 use crate::{
     compiler::{
@@ -7,7 +11,7 @@ use crate::{
     },
     lexer::Lexer,
     parser::parser::Parser,
-    utils::{self, throw_error},
+    utils::{self, print_info, print_success, throw_error},
 };
 
 type CommandFn = fn(&[String]);
@@ -18,6 +22,12 @@ struct Command {
     usage: &'static str,
     args_count: usize,
     function: CommandFn,
+}
+
+enum FileType {
+    Source,
+    Bytecode,
+    Unknown,
 }
 
 fn get_commands() -> HashMap<&'static str, Command> {
@@ -38,7 +48,7 @@ fn get_commands() -> HashMap<&'static str, Command> {
         "run",
         Command {
             name: "run",
-            description: "Runs a Hydor source file",
+            description: "Runs a Hydor source file or bytecode",
             usage: "run <file>",
             args_count: 1,
             function: command_run,
@@ -53,6 +63,17 @@ fn get_commands() -> HashMap<&'static str, Command> {
             usage: "disassemble <file>",
             args_count: 1,
             function: command_disassemble,
+        },
+    );
+
+    commands.insert(
+        "build",
+        Command {
+            name: "build",
+            description: "Builds bytecode from a Hydor file",
+            usage: "build <file>",
+            args_count: 1,
+            function: command_build,
         },
     );
 
@@ -94,31 +115,126 @@ pub fn run(args: Vec<String>) {
 fn command_help(_args: &[String]) {
     let commands = get_commands();
 
-    println!("Usage: hydor <command> [args...]\n");
-    println!("Commands:");
+    println!("{}", "Usage:".bright_white().bold());
+    println!(
+        "  {} {} {}",
+        "hydor".cyan(),
+        "<command>".yellow(),
+        "[args...]".bright_black()
+    );
+    println!();
+    println!("{}", "Commands:".bright_white().bold());
 
     let mut cmd_list: Vec<_> = commands.values().collect();
     cmd_list.sort_by_key(|c| c.name);
 
     for cmd in cmd_list {
-        println!("  {:<20} {}", cmd.usage, cmd.description);
+        println!(
+            "  {:<25} {}",
+            format!("hydor {}", cmd.usage).cyan(),
+            cmd.description.bright_black()
+        );
     }
+    println!();
+    println!("{}", "Examples:".bright_white().bold());
+    println!(
+        "  {} {}",
+        "hydor run main.hyd".cyan(),
+        "# Compile and run source".bright_black()
+    );
+    println!(
+        "  {} {}",
+        "hydor build app.hyd".cyan(),
+        "# Build to bytecode".bright_black()
+    );
+    println!(
+        "  {} {}",
+        "hydor run app.hydc".cyan(),
+        "# Run precompiled bytecode".bright_black()
+    );
 }
 
 fn command_run(args: &[String]) {
     let path = &args[0];
-    let source = utils::read_file(path.to_string());
-    let bytecode = compile_source(&source);
 
-    // disassemble for now
+    let bytecode = match detect_file_type(path) {
+        FileType::Bytecode => {
+            print_info(&format!("Loading bytecode from '{}'", path));
+            match Bytecode::load_from_file(path) {
+                Ok(bc) => bc,
+                Err(err) => throw_error(&format!("Failed to load bytecode: {}", err), 1),
+            }
+        }
+        FileType::Source => {
+            print_info(&format!("Compiling '{}'", path));
+            let source = utils::read_file(path.to_string());
+            compile_source(&source)
+        }
+        FileType::Unknown => throw_error(
+            "File is neither valid Hydor source (.hyd) nor bytecode (.hydc)",
+            1,
+        ),
+    };
+
+    println!();
+    print_success("Execution started");
+    println!();
+
+    // For now, just disassemble
     disassemble(&bytecode);
+}
+
+fn detect_file_type(path: &str) -> FileType {
+    // Try to read the first 4 bytes (magic number)
+    let mut file = match File::open(path) {
+        Ok(f) => f,
+        Err(_) => return FileType::Unknown,
+    };
+
+    // Check for magic number
+    match file.read_u32::<BigEndian>() {
+        Ok(magic) if magic == 0x48594452 => FileType::Bytecode, // "HYDR"
+        _ => {
+            // Not bytecode, assume it's source code
+            // Could do additional validation here (check if it's valid UTF-8, etc.)
+            FileType::Source
+        }
+    }
 }
 
 fn command_disassemble(args: &[String]) {
     let path = &args[0];
+
+    print_info(&format!("Compiling '{}'", path));
     let source = utils::read_file(path.to_string());
     let bytecode = compile_source(&source);
+
+    println!();
     disassemble(&bytecode);
+}
+
+fn command_build(args: &[String]) {
+    let input_path = &args[0];
+
+    print_info(&format!("Compiling '{}'", input_path));
+    let source = utils::read_file(input_path.to_string());
+    let bytecode = compile_source(&source);
+
+    // Generate output path: replace extension with .hydc
+    let mut output_path = PathBuf::from(input_path);
+    output_path.set_extension("hydc");
+
+    match bytecode.save_to_file(&output_path) {
+        Ok(()) => {
+            println!();
+            print_success(&format!(
+                "Built '{}' → '{}'",
+                input_path.bright_white(),
+                output_path.display().to_string().bright_white()
+            ));
+        }
+        Err(err) => throw_error(&format!("Cannot save to file: {}", err), 1),
+    }
 }
 
 fn compile_source(source: &str) -> Bytecode {

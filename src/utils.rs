@@ -50,3 +50,15 @@ pub fn throw_error(message: &str, code: i32) -> ! {
     eprintln!("{}: {}", "Error".bright_red(), message);
     process::exit(code);
 }
+
+pub fn print_success(msg: &str) {
+    println!("{} {}", "✓".bright_green().bold(), msg);
+}
+
+pub fn print_info(msg: &str) {
+    println!("{} {}", "→".bright_blue().bold(), msg);
+}
+
+pub fn print_warning(msg: &str) {
+    println!("{} {}", "⚠".bright_yellow().bold(), msg);
+}
