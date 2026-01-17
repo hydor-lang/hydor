@@ -1,4 +1,5 @@
 use crate::utils::Span;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TokenInfo {
@@ -124,6 +125,68 @@ pub enum TokenType {
     Return,
 }
 
+impl fmt::Display for TokenType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            // Literals
+            TokenType::Integer => write!(f, "Integer"),
+            TokenType::Float => write!(f, "Float"),
+            TokenType::String => write!(f, "String"),
+            TokenType::Identifier => write!(f, "Identifier"),
+
+            // Operators
+            TokenType::Assign => write!(f, "="),
+            TokenType::Plus => write!(f, "+"),
+            TokenType::Minus => write!(f, "-"),
+            TokenType::Asterisk => write!(f, "*"),
+            TokenType::Slash => write!(f, "/"),
+            TokenType::Caret => write!(f, "^"),
+            TokenType::Bang => write!(f, "!"),
+
+            // Comparison
+            TokenType::LessThan => write!(f, "<"),
+            TokenType::GreaterThan => write!(f, ">"),
+            TokenType::Equal => write!(f, "=="),
+            TokenType::NotEqual => write!(f, "!="),
+            TokenType::LessThanEqual => write!(f, "<="),
+            TokenType::GreaterThanEqual => write!(f, ">="),
+
+            // Delimiters
+            TokenType::Comma => write!(f, ","),
+            TokenType::Semicolon => write!(f, ";"),
+            TokenType::Colon => write!(f, ":"),
+            TokenType::Newline => write!(f, "newline"),
+            TokenType::Dot => write!(f, "."),
+            TokenType::BoxColon => write!(f, "::"),
+
+            // Grouping
+            TokenType::LeftParenthesis => write!(f, "("),
+            TokenType::RightParenthesis => write!(f, ")"),
+            TokenType::LeftBrace => write!(f, "{{"),
+            TokenType::RightBrace => write!(f, "}}"),
+            TokenType::LeftBracket => write!(f, "["),
+            TokenType::RightBracket => write!(f, "]"),
+
+            // Special
+            TokenType::EndOfFile => write!(f, "EOF"),
+            TokenType::Illegal => write!(f, "illegal"),
+
+            // Keywords
+            TokenType::Function => write!(f, "fn"),
+            TokenType::Let => write!(f, "let"),
+            TokenType::True => write!(f, "true"),
+            TokenType::False => write!(f, "false"),
+            TokenType::If => write!(f, "if"),
+            TokenType::Else => write!(f, "else"),
+            TokenType::Nil => write!(f, "nil"),
+            TokenType::Or => write!(f, "or"),
+            TokenType::And => write!(f, "and"),
+            TokenType::Not => write!(f, "not"),
+            TokenType::Return => write!(f, "return"),
+        }
+    }
+}
+
 impl Token {
     pub fn lookup_identifier(identifier: &str) -> Token {
         match identifier {
@@ -142,7 +205,7 @@ impl Token {
         }
     }
 
-    pub fn get_type(&self) -> TokenType {
+    pub fn get_token_type(&self) -> TokenType {
         match self {
             // Literals
             Token::Integer(_) => TokenType::Integer,

@@ -168,7 +168,7 @@ impl Compiler {
             Expr::Unary { operator, right } => {
                 self.compile_expression(*right);
 
-                match operator.get_type() {
+                match operator.get_token_type() {
                     TokenType::Not => self.emit(OpCode::UnaryNot, vec![], span),
                     TokenType::Minus => self.emit(OpCode::UnaryNegate, vec![], span),
 
@@ -184,7 +184,7 @@ impl Compiler {
                 self.compile_expression(*left);
                 self.compile_expression(*right);
 
-                match operator.get_type() {
+                match operator.get_token_type() {
                     TokenType::Plus => self.emit(OpCode::Add, vec![], span),
                     TokenType::Minus => self.emit(OpCode::Subtract, vec![], span),
                     TokenType::Asterisk => self.emit(OpCode::Subtract, vec![], span),

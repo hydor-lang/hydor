@@ -105,16 +105,16 @@ impl Parser {
 
     fn is_at_delimiter(&self) -> bool {
         matches!(
-            self.current_token().token.get_type(),
+            self.current_token().token.get_token_type(),
             TokenType::Semicolon | TokenType::Newline
         )
     }
 
     fn expect(&mut self, token_type: TokenType) -> bool {
-        if self.current_token().token.get_type() != token_type {
+        if self.current_token().token.get_token_type() != token_type {
             let expect_err_msg = HydorError::ExpectedToken {
                 expected: token_type,
-                got: self.current_token().token.get_type(),
+                got: self.current_token().token.get_token_type(),
                 span: self.current_token().span,
             };
 
@@ -137,7 +137,7 @@ impl Parser {
         }
 
         // Outside delimiters - require a delimiter
-        match self.current_token().token.get_type() {
+        match self.current_token().token.get_token_type() {
             TokenType::EndOfFile => true,
             TokenType::Semicolon | TokenType::Newline => {
                 // Consume all consecutive delimiters
@@ -149,7 +149,7 @@ impl Parser {
             _ => {
                 let expect_err_msg = HydorError::ExpectedToken {
                     expected: TokenType::Semicolon,
-                    got: self.current_token().token.get_type(),
+                    got: self.current_token().token.get_token_type(),
                     span: self.current_token().span,
                 };
 
@@ -162,7 +162,7 @@ impl Parser {
     fn skip_newlines_in_delimiters(&mut self) {
         if !self.delimiter_stack.is_empty() {
             while matches!(
-                self.current_token().token.get_type(),
+                self.current_token().token.get_token_type(),
                 TokenType::Newline | TokenType::Semicolon
             ) && !self.is_eof()
             {
@@ -201,7 +201,7 @@ impl Parser {
     pub fn try_parse_expression(&mut self, precedence: u8) -> Option<Expression> {
         self.skip_newlines_in_delimiters();
 
-        let token_type = self.current_token().token.get_type();
+        let token_type = self.current_token().token.get_token_type();
 
         // Get prefix parser function
         let prefix_fn = match self.nud_parse_fns.get(&token_type) {
@@ -221,7 +221,7 @@ impl Parser {
         while !self.is_eof() {
             self.skip_newlines_in_delimiters();
 
-            let token_type = self.current_token().token.get_type();
+            let token_type = self.current_token().token.get_token_type();
             let next_prec =
                 Precedence::get_token_precedence(&token_type).unwrap_or(Precedence::Default);
             let next_prec_value = next_prec.into();
@@ -242,7 +242,7 @@ impl Parser {
     }
 
     fn try_parse_statement(&mut self) -> Option<Statement> {
-        let stmt_type = self.current_token().token.get_type();
+        let stmt_type = self.current_token().token.get_token_type();
 
         // Try to parse as a statement
         if let Some(stmt_fn) = self.stmt_parse_fns.get(&stmt_type) {
@@ -377,7 +377,7 @@ impl Parser {
     pub fn parse_binary_expr(&mut self, left: Expression) -> Option<Expression> {
         let operator_info = self.current_token().clone();
         let operator_precedence =
-            match Precedence::get_token_precedence(&operator_info.token.get_type()) {
+            match Precedence::get_token_precedence(&operator_info.token.get_token_type()) {
                 Some(p) => p,
                 _ => Precedence::Default,
             };
@@ -398,7 +398,7 @@ impl Parser {
     pub fn parse_exponent_expr(&mut self, left: Expression) -> Option<Expression> {
         let operator_info = self.current_token().clone();
         let operator_precedence: u8 =
-            match Precedence::get_token_precedence(&operator_info.token.get_type()) {
+            match Precedence::get_token_precedence(&operator_info.token.get_token_type()) {
                 Some(p) => p,
                 _ => Precedence::Default,
             }

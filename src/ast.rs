@@ -11,6 +11,7 @@ pub struct Program {
 pub type Expression = Spanned<Expr>;
 pub type Statement = Spanned<Stmt>;
 
+// Used fot error handling
 #[derive(Debug, Clone, PartialEq)]
 pub enum Node {
     Statement(Stmt),
