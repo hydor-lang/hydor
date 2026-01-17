@@ -1,7 +1,7 @@
-use crate::{hydor_vm::vm::HydorVM, runtime_value::RuntimeValue};
+use crate::{bytecode::bytecode::OpCode, hydor_vm::vm::HydorVM, runtime_value::RuntimeValue};
 
 impl HydorVM {
-    pub fn is_truthy(&self, rv: RuntimeValue) -> bool {
+    pub(crate) fn is_truthy(&self, rv: RuntimeValue) -> bool {
         match rv {
             RuntimeValue::BooleanLiteral(b) => b,
             RuntimeValue::IntegerLiteral(n) => n != 0,
@@ -16,4 +16,17 @@ impl HydorVM {
             _ => true,
         }
     }
+}
+
+pub(crate) fn opcode_to_operator(opcode: OpCode) -> String {
+    match opcode {
+        OpCode::CompareLess => "<",
+        OpCode::CompareLessEqual => "<=",
+        OpCode::CompareGreater => ">",
+        OpCode::CompareGreaterEqual => ">=",
+        OpCode::CompareEqual => "==",
+        OpCode::CompareNotEqual => "!=",
+        _ => "?",
+    }
+    .to_string()
 }
