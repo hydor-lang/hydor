@@ -7,27 +7,50 @@ pub enum OpCode {
     Halt = 0x01,
     Pop = 0x02,
 
-    Add = 0x04,
-    Subtract = 0x05,
-    Multiply = 0x06,
-    Divide = 0x07,
-    Exponent = 0x08,
+    // Integer arithmetic
+    AddInt = 0x04,
+    SubtractInt = 0x05,
+    MultiplyInt = 0x06,
+    DivideInt = 0x07,
+    ExponentInt = 0x08,
 
-    UnaryNegate = 0x09,
-    UnaryNot = 0xA,
+    // Float arithmetic
+    AddFloat = 0x09,
+    SubtractFloat = 0x0A,
+    MultiplyFloat = 0x0B,
+    DivideFloat = 0x0C,
+    ExponentFloat = 0x0D,
 
+    // String operations
+    ConcatString = 0x0E,
+
+    // Unary operations
+    UnaryNegateInt = 0x0F,
+    UnaryNegateFloat = 0x10,
+    UnaryNot = 0x11,
+
+    // Load operations
     LoadConstant = 0x03,
-    LoadString = 0xB,
-    LoadNil = 0xC,
-    LoadBoolTrue = 0xD,
-    LoadBoolFalse = 0xE,
+    LoadString = 0x12,
+    LoadNil = 0x13,
+    LoadBoolTrue = 0x14,
+    LoadBoolFalse = 0x15,
 
-    CompareLess = 0xF,
-    CompareLessEqual = 0x10,
-    CompareGreater = 0x11,
-    CompareGreaterEqual = 0x012,
-    CompareEqual = 0x13,
-    CompareNotEqual = 0x14,
+    // Integer comparisons
+    CompareLessInt = 0x16,
+    CompareLessEqualInt = 0x17,
+    CompareGreaterInt = 0x18,
+    CompareGreaterEqualInt = 0x19,
+
+    // Float comparisons
+    CompareLessFloat = 0x1A,
+    CompareLessEqualFloat = 0x1B,
+    CompareGreaterFloat = 0x1C,
+    CompareGreaterEqualFloat = 0x1D,
+
+    // General equality (works on any type)
+    CompareEqual = 0x1E,
+    CompareNotEqual = 0x1F,
 }
 
 pub struct Definition {
@@ -97,50 +120,108 @@ impl OpCode {
                 name: "POP",
                 operands_width: vec![],
             },
-            OpCode::Add => Definition {
-                name: "ADD",
+
+            // Integer arithmetic
+            OpCode::AddInt => Definition {
+                name: "ADD_INT",
                 operands_width: vec![],
             },
-            OpCode::Subtract => Definition {
-                name: "SUCTRACT",
+            OpCode::SubtractInt => Definition {
+                name: "SUBTRACT_INT",
                 operands_width: vec![],
             },
-            OpCode::Multiply => Definition {
-                name: "MULTIPLY",
+            OpCode::MultiplyInt => Definition {
+                name: "MULTIPLY_INT",
                 operands_width: vec![],
             },
-            OpCode::Divide => Definition {
-                name: "DIVIDE",
+            OpCode::DivideInt => Definition {
+                name: "DIVIDE_INT",
                 operands_width: vec![],
             },
-            OpCode::Exponent => Definition {
-                name: "EXPONENT",
+            OpCode::ExponentInt => Definition {
+                name: "EXPONENT_INT",
                 operands_width: vec![],
             },
-            OpCode::UnaryNegate => Definition {
-                name: "UNARY_NEGATE",
+
+            // Float arithmetic
+            OpCode::AddFloat => Definition {
+                name: "ADD_FLOAT",
+                operands_width: vec![],
+            },
+            OpCode::SubtractFloat => Definition {
+                name: "SUBTRACT_FLOAT",
+                operands_width: vec![],
+            },
+            OpCode::MultiplyFloat => Definition {
+                name: "MULTIPLY_FLOAT",
+                operands_width: vec![],
+            },
+            OpCode::DivideFloat => Definition {
+                name: "DIVIDE_FLOAT",
+                operands_width: vec![],
+            },
+            OpCode::ExponentFloat => Definition {
+                name: "EXPONENT_FLOAT",
+                operands_width: vec![],
+            },
+
+            // String operations
+            OpCode::ConcatString => Definition {
+                name: "CONCAT_STRING",
+                operands_width: vec![],
+            },
+
+            // Unary operations
+            OpCode::UnaryNegateInt => Definition {
+                name: "UNARY_NEGATE_INT",
+                operands_width: vec![],
+            },
+            OpCode::UnaryNegateFloat => Definition {
+                name: "UNARY_NEGATE_FLOAT",
                 operands_width: vec![],
             },
             OpCode::UnaryNot => Definition {
                 name: "UNARY_NOT",
                 operands_width: vec![],
             },
-            OpCode::CompareLess => Definition {
-                name: "COMPARE_LESS",
+
+            // Integer comparisons
+            OpCode::CompareLessInt => Definition {
+                name: "COMPARE_LESS_INT",
                 operands_width: vec![],
             },
-            OpCode::CompareLessEqual => Definition {
-                name: "COMPARE_LESS_EQUAL",
+            OpCode::CompareLessEqualInt => Definition {
+                name: "COMPARE_LESS_EQUAL_INT",
                 operands_width: vec![],
             },
-            OpCode::CompareGreater => Definition {
-                name: "COMPARE_GREATER",
+            OpCode::CompareGreaterInt => Definition {
+                name: "COMPARE_GREATER_INT",
                 operands_width: vec![],
             },
-            OpCode::CompareGreaterEqual => Definition {
-                name: "COMPARE_GREATER_EQUAL",
+            OpCode::CompareGreaterEqualInt => Definition {
+                name: "COMPARE_GREATER_EQUAL_INT",
                 operands_width: vec![],
             },
+
+            // Float comparisons
+            OpCode::CompareLessFloat => Definition {
+                name: "COMPARE_LESS_FLOAT",
+                operands_width: vec![],
+            },
+            OpCode::CompareLessEqualFloat => Definition {
+                name: "COMPARE_LESS_EQUAL_FLOAT",
+                operands_width: vec![],
+            },
+            OpCode::CompareGreaterFloat => Definition {
+                name: "COMPARE_GREATER_FLOAT",
+                operands_width: vec![],
+            },
+            OpCode::CompareGreaterEqualFloat => Definition {
+                name: "COMPARE_GREATER_EQUAL_FLOAT",
+                operands_width: vec![],
+            },
+
+            // General equality
             OpCode::CompareEqual => Definition {
                 name: "COMPARE_EQUAL",
                 operands_width: vec![],
@@ -163,23 +244,50 @@ impl ToOpcode for u8 {
             0x01 => OpCode::Halt,
             0x02 => OpCode::Pop,
             0x03 => OpCode::LoadConstant,
-            0x04 => OpCode::Add,
-            0x05 => OpCode::Subtract,
-            0x06 => OpCode::Multiply,
-            0x07 => OpCode::Divide,
-            0x08 => OpCode::Exponent,
-            0x09 => OpCode::UnaryNegate,
-            0xA => OpCode::UnaryNot,
-            0xB => OpCode::LoadString,
-            0xC => OpCode::LoadNil,
-            0xD => OpCode::LoadBoolTrue,
-            0xE => OpCode::LoadBoolFalse,
-            0xF => OpCode::CompareLess,
-            0x10 => OpCode::CompareLessEqual,
-            0x11 => OpCode::CompareGreater,
-            0x12 => OpCode::CompareGreaterEqual,
-            0x13 => OpCode::CompareEqual,
-            0x14 => OpCode::CompareNotEqual,
+
+            // Integer arithmetic
+            0x04 => OpCode::AddInt,
+            0x05 => OpCode::SubtractInt,
+            0x06 => OpCode::MultiplyInt,
+            0x07 => OpCode::DivideInt,
+            0x08 => OpCode::ExponentInt,
+
+            // Float arithmetic
+            0x09 => OpCode::AddFloat,
+            0x0A => OpCode::SubtractFloat,
+            0x0B => OpCode::MultiplyFloat,
+            0x0C => OpCode::DivideFloat,
+            0x0D => OpCode::ExponentFloat,
+
+            // String operations
+            0x0E => OpCode::ConcatString,
+
+            // Unary operations
+            0x0F => OpCode::UnaryNegateInt,
+            0x10 => OpCode::UnaryNegateFloat,
+            0x11 => OpCode::UnaryNot,
+
+            // Load operations
+            0x12 => OpCode::LoadString,
+            0x13 => OpCode::LoadNil,
+            0x14 => OpCode::LoadBoolTrue,
+            0x15 => OpCode::LoadBoolFalse,
+
+            // Integer comparisons
+            0x16 => OpCode::CompareLessInt,
+            0x17 => OpCode::CompareLessEqualInt,
+            0x18 => OpCode::CompareGreaterInt,
+            0x19 => OpCode::CompareGreaterEqualInt,
+
+            // Float comparisons
+            0x1A => OpCode::CompareLessFloat,
+            0x1B => OpCode::CompareLessEqualFloat,
+            0x1C => OpCode::CompareGreaterFloat,
+            0x1D => OpCode::CompareGreaterEqualFloat,
+
+            // General equality
+            0x1E => OpCode::CompareEqual,
+            0x1F => OpCode::CompareNotEqual,
 
             _ => unreachable!("Cannot convert byte '{}' to an opcode", self),
         }
