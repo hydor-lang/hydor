@@ -1,9 +1,13 @@
 use crate::{
-    ast::{Expr, Expression, Program, Statement, Stmt},
+    ast::{
+        ast::{Expr, Expression, Program, Statement, Stmt},
+        type_annotation::TypeAnnotation,
+    },
     errors::{ErrorCollector, HydorError},
+    utils::throw_error,
 };
 use core::fmt;
-use std::mem;
+use std::{mem, vec};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
@@ -22,6 +26,17 @@ impl fmt::Display for Type {
             Type::Bool => write!(f, "Bool"),
             Type::String => write!(f, "String"),
             Type::Nil => write!(f, "Nil"),
+        }
+    }
+}
+
+impl Type {
+    pub fn from_anotated_type(an_type: &TypeAnnotation) -> Self {
+        match an_type {
+            TypeAnnotation::StringType => Self::String,
+            TypeAnnotation::IntegerType => Self::Integer,
+            TypeAnnotation::FloatType => Self::Float,
+            TypeAnnotation::BooleanType => Self::Bool,
         }
     }
 }
@@ -57,7 +72,29 @@ impl TypeChecker {
                 self.check_expression(expression)?;
                 Ok(())
             }
-            _ => unimplemented!(),
+            Stmt::VariableDeclaration {
+                value,
+                annotated_type,
+                span,
+                ..
+            } => {
+                let an_type = Type::from_anotated_type(annotated_type);
+                let value_type = self.check_expression(value)?;
+
+                if an_type != value_type {
+                    self.throw_error(HydorError::DeclarationTypeMismatch {
+                        expected: an_type,
+                        got: value_type,
+                        span: *span,
+                    });
+
+                    return Err(());
+                }
+
+                Ok(())
+            }
+
+            _ => throw_error(&format!("unknown ast: \n\n{:#?}", stmt.node), 1),
         }
     }
 
@@ -79,7 +116,7 @@ impl TypeChecker {
                 right,
             } => self.check_binary_expr(operator, left, right, span),
 
-            _ => unreachable!("Unknown expression type"),
+            _ => unreachable!("Unknown expression type {:#?}", expr.node),
         }
     }
 

@@ -1,5 +1,5 @@
 use crate::{
-    ast::Expression,
+    ast::ast::Expression,
     errors::HydorError,
     tokens::{Token, TokenType},
     type_checker::type_checker::{Type, TypeChecker},
@@ -17,13 +17,14 @@ impl TypeChecker {
         // If either side has an error, propagate it (stops cascading errors!)
         let left_type = self.check_expression(left)?;
         let right_type = self.check_expression(right)?;
+        let op_tok = operator.get_token_type();
 
-        match operator.get_token_type() {
+        match op_tok {
             // Arithmetic
             TokenType::Plus => {
                 if left_type != right_type {
                     self.throw_error(HydorError::InvalidBinaryOp {
-                        operator: operator.get_token_type().to_string(),
+                        operator: op_tok,
                         left_type,
                         right_type,
                         span,
@@ -40,7 +41,7 @@ impl TypeChecker {
                 }
 
                 self.throw_error(HydorError::InvalidBinaryOp {
-                    operator: operator.get_token_type().to_string(),
+                    operator: op_tok,
                     left_type,
                     right_type,
                     span,
@@ -48,25 +49,16 @@ impl TypeChecker {
                 Err(())
             }
 
-            TokenType::Minus | TokenType::Asterisk | TokenType::Slash | TokenType::Caret => self
-                .require_numeric_types(
-                    &operator.get_token_type().to_string(),
-                    left_type,
-                    right_type,
-                    span,
-                ),
+            TokenType::Minus | TokenType::Asterisk | TokenType::Slash | TokenType::Caret => {
+                self.require_numeric_types(op_tok, left_type, right_type, span)
+            }
 
             // Comparison - returns Bool, not the operand type!
             TokenType::LessThan
             | TokenType::LessThanEqual
             | TokenType::GreaterThan
             | TokenType::GreaterThanEqual => {
-                self.require_numeric_types(
-                    &operator.get_token_type().to_string(),
-                    left_type,
-                    right_type,
-                    span,
-                )?;
+                self.require_numeric_types(op_tok, left_type, right_type, span)?;
                 Ok(Type::Bool)
             }
 
@@ -74,7 +66,7 @@ impl TypeChecker {
             TokenType::Equal | TokenType::NotEqual => {
                 if left_type != right_type {
                     self.throw_error(HydorError::InvalidBinaryOp {
-                        operator: operator.get_token_type().to_string(),
+                        operator: op_tok,
                         left_type,
                         right_type,
                         span,
@@ -91,14 +83,14 @@ impl TypeChecker {
 
     fn require_numeric_types(
         &mut self,
-        op: &str,
+        op: TokenType,
         left: Type,
         right: Type,
         span: Span,
     ) -> Result<Type, ()> {
         if left != right {
             self.throw_error(HydorError::InvalidBinaryOp {
-                operator: op.to_string(),
+                operator: op,
                 left_type: left,
                 right_type: right,
                 span,
@@ -108,7 +100,7 @@ impl TypeChecker {
 
         if left != Type::Integer && left != Type::Float {
             self.throw_error(HydorError::InvalidBinaryOp {
-                operator: op.to_string(),
+                operator: op,
                 left_type: left.clone(),
                 right_type: right,
                 span,

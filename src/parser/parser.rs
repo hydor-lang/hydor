@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{Expr, Expression, Program, Statement, Stmt},
+    ast::ast::{Expr, Expression, Program, Statement, Stmt},
     errors::{ErrorCollector, HydorError},
     parser::lookups::Precedence,
     tokens::{Token, TokenInfo, TokenType},
@@ -62,6 +62,8 @@ impl Parser {
         parser.register_led(TokenType::Equal, Parser::parse_binary_expr);
         parser.register_led(TokenType::NotEqual, Parser::parse_binary_expr);
 
+        parser.register_stmt(TokenType::Let, Parser::parse_variable_decl);
+
         parser
     }
 
@@ -97,7 +99,7 @@ impl Parser {
         self.stmt_parse_fns.insert(token, func);
     }
 
-    fn advance(&mut self) {
+    pub(crate) fn advance(&mut self) {
         if self.current < self.tokens.len() - 1 {
             self.current += 1;
         }
@@ -188,7 +190,7 @@ impl Parser {
         }
     }
 
-    fn current_token(&self) -> &TokenInfo {
+    pub(crate) fn current_token(&self) -> &TokenInfo {
         self.tokens
             .get(self.current)
             .unwrap_or_else(|| self.tokens.last().expect("Token vector is empty!"))
@@ -449,5 +451,42 @@ impl Parser {
         .spanned(full_span); // ← Use full expression span
 
         Some(expr)
+    }
+}
+
+// Statements
+impl Parser {
+    pub fn parse_variable_decl(&mut self) -> Option<Statement> {
+        let let_tok = self.current_token().clone();
+        self.advance(); // Eat let keyword ---
+        let ident = self.parse_identifier_literal()?;
+        if !self.expect(TokenType::Colon) {
+            return None;
+        }
+        let an_type = self.try_parse_type()?;
+        if !self.expect(TokenType::Assign) {
+            return None;
+        }
+
+        let value = self.try_parse_expression(Precedence::Default.into())?;
+        if !self.expect_delimiter() {
+            return None;
+        }
+
+        let full_span = Span {
+            line: let_tok.span.line,
+            start_column: let_tok.span.start_column,
+            end_column: value.span.end_column,
+        };
+
+        Some(
+            Stmt::VariableDeclaration {
+                identifier: ident,
+                value,
+                annotated_type: an_type,
+                span: full_span,
+            }
+            .spanned(let_tok.span),
+        )
     }
 }

@@ -1,4 +1,5 @@
 use crate::{
+    ast::type_annotation::TypeAnnotation,
     tokens::Token,
     utils::{Span, Spanned},
 };
@@ -47,6 +48,8 @@ pub enum Stmt {
     VariableDeclaration {
         identifier: Expression,
         value: Expression,
+        annotated_type: TypeAnnotation,
+        span: Span,
     },
 }
 
